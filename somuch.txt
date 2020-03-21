@@ -1,0 +1,464 @@
+JAVA基础
+
+
+JAVA中的几种基本数据类型是什么，各自占用多少字节。
+boolean 4b, byte 1b, char 2b, short 2b, int 4b, long 8b, float 4b, double 8b
+
+
+String类能被继承吗，为什么。
+因为final关键字修饰
+
+
+JDK8中的接口Interface可以实现具体方法
+默认实现：default void method(){...};
+静态实现：static void method() {...}; 只能用public或者不写
+默认接口中的方法都是public的
+
+
+String，StringBuffer，StringBuilder的区别。【TODO】总是记不住
+不可变类 可变线程安全   可变线程不安全
+
+
+ArrayList和LinkedList有什么区别。
+数组实现，扩容时拷贝，查找方便。链表实现，增删方便
+
+
+讲讲类的实例化顺序，比如父类静态数据，构造函数，字段，子类静态数据，构造函数，字段，当new的时候，他们的执行顺序。【TODO】
+静态优先原则（静态属性，静态代码块）
+父类优先原则
+普通属性>非静态代码块>构造方法
+父类静态属性 父类静态代码块 > 子类静态属性 子类静态代码块 > 父类普通属性，父类非静态代码块，父类构造函数 > 子类普通属性，子类非静态代码块，子类构造函数
+
+
+用过哪些Map类，都有什么区别，HashMap是线程安全的吗,并发下使用的Map是什么，他们内部原理分别是什么，比如存储方式，hashcode，扩容，默认容量等。[TODO]
+HashTable  HashMap          LinkedHashMap           TreeMap
+线程安全    线程不安全效率高   线程不安全维护顺序         非线程安全，可以按照指定顺序存储数据，自动排序
+哈希表      哈希表           HashMap+双向链表记录顺序   红黑树
+hashmap/linkedhashmap冲突个数超过8(默认值)的列表，jdk1.8中采用了红黑树的结构，那么查询的时间复杂度可以降低到O(logN)否则是O(n)但是相对空间占用变大了一倍。
+TreeMap能够实现排序，存入的元素需要实现Comparable接口或者Comparator接口。treeMap的key不能为null，value可以为null（key用来索引红黑树结构的所以不能为空）
+hashtable计算hash是直接使用key的hashcode对数组的长度进行取模操作得到数组下标
+HashMap计算hash对key的hashcode进行了二次hash（使用不带符号位右移16位后合并异或hash ^ hash >>> 16），以获得更好的散列值，然后对table数组长度取模（使用相同的位运算替代提高性能）hash&(length-1)=hash%length
+HashMap的初始容量为16，Hashtable初始容量为11，两者的填充因子默认都是0.75
+HashMap扩容时是当前容量翻倍即:capacity*2，Hashtable扩容时是容量翻倍+1即:capacity*2+1
+HashMap是非线程安全的,只是用于单线程环境下,多线程环境下可以采用concurrent并发包下的concurrentHashMap。HashTable是线程安全的,synchronized
+HashMap/linkedhashmap中key和value都允许为null。key为null的键值对永远都放在以table[0]为头结点的链表中。hash算法中当key为null的时候返回hash为0，0和任何数取模都是0
+HashTable在 key、value 遇到null时，会抛出NullPointerException异常，hashtable在设计的时候是比较古老类，希望key能够实现hashcode和equals的方法，所以null没有，所以直接抛出异常，在后续都得到了改进，支持null
+https://blog.csdn.net/HD243608836/article/details/88052088说明
+HashMap仅支持Iterator的遍历方式，Hashtable支持Iterator和Enumeration两种遍历方式，对于较为新的程序迭代器由于Enumeration毕竟比较新
+
+
+JAVA8的ConcurrentHashMap为什么放弃了分段锁，有什么问题吗，如果你来设计，你如何设计。
+缺点1：其中并发级别控制了Segment的个数，在一个ConcurrentHashMap创建后Segment的个数是不能变的，扩容过程过改变的是每个Segment的大小。
+缺点2：段Segment继承了重入锁ReentrantLock，有了锁的功能，每个锁控制的是一段，当每个Segment越来越大时，锁的粒度就变得有些大了。会造成更新等待，因为范围比较大了
+使用cas进行无锁更新，只对数组的头结点加锁，并发就是数组的长度的并发了。一般不出现冲突的化到不了锁的情况。加锁sync对jvm有性能优化可以持续升级
+1.7 ConcurrentHashMap加锁粒度是基于Segment（ReentrantLock）的，包含多个HashEntry。多个线程同时竞争获取同一个segment锁，获取成功的线程更新
+map；失败的线程尝试多次获取锁仍未成功，则挂起线程，等待释放锁。
+1.8 ConcurrentHashMap加锁粒度是基于HashEntry数组，采用Synchronized和CAS，锁粒度变小了。当bucket为空时，使用CAS操作，将Node放入对应的
+bucket中；当出现hash冲突时，则采用synchronized关键字。链表超过一定长度会转成红黑树。
+
+
+为什么采用Synchronized而不是ReentrantLock?
+锁已经被细化的很小了,出现并发争抢的可能性不高。哪怕出现了争抢,只要线程可以在30~50次自旋里拿到锁,那么Synchronized就不会升级为重量级锁,
+等待的线程也不用被挂起,也就少了挂起和唤醒带来的上下文切换开销。
+但如果是ReentrantLock，若线程没有抢到锁,不会自旋而是直接挂起,就会带来线程上下文开销。当然,你也可以使用tryLock(),但是这样又出现了一个问题,
+你怎么知道tryLock的时间呢?在时间范围里还好,假如超过了呢?所以使用Synchronized是最好的选择。
+而且Synchronized能够使用到jdk版本升级的锁优化
+
+
+ThreadLocal详解【TODO】
+在Thread类中包含一个ThreadLocal.ThreadLocalMap成员变量threadLocals，ThreadLocalMap是ThreadLocal类的一个静态内部类，键为线程对象，值为对应线程的变量副本。
+实际上，每个线程Thread持有一个ThreadLocalMap类型的实例threadLocals，结合ThreadLocalMap的构造方法可以理解成每个线程Thread都持有一个Entry型
+的数组table，ThreadLocal确定了一个数组下标，而这个下标就是value存储的对应位置
+
+
+有没有有顺序的Map实现类，如果有，他们是怎么保证有序的。
+LinkedHashMap 使用HashMap存储数据 + 双向链表维护顺序
+treeMap 自定义排序比较器，自动排序，红黑树结构
+
+
+抽象类和接口的区别，类可以继承多个类么，接口可以继承多个接口么,类可以实现多个接口么。
+抽象类不能实例化，可以被普通类继承后，实现抽象方法，抽象类可以写抽象方法只有方法名，没有具体实现。
+接口也不能被实例化，可以被实现，接口没有构造函数，接口中方法必须是抽象的，接口中的方法都是public的，除了static和final变量不能有其他变量，接口支持多继承（一个类可以实现多个接口）
+抽象类可以有默认的方法实现完全是抽象的。接口根本不存在方法的实现。
+实现 抽象类使用extends关键字来继承抽象类。如果子类不是抽象类的话，它需要提供抽象类中所有声明的方法的实现。子类使用关键字implements来实现接口。它需要提供接口中所有声明的方法的实现。
+如果你往抽象类中添加新的方法，你可以给它提供默认的实现。因此你不需要改变你现在的代码。 如果你往接口中添加方法，那么你必须改变实现该接口的类。
+类不可以继承多个类，但是可以实现多个接口，接口可以继承多个接口。
+
+
+IO模型有哪些，讲讲你理解的nio ，他和bio，aio的区别是啥，谈谈reactor模型。[TODO]
+同步阻塞的BIO，面向流，都是inputstream和outputstream，服务端启动一个severSocket监听特定端口，然后客户端创建指定ip地址和端口的socket去连接
+服务器。每有一个客户端连接进来，服务器都要创建一个线程，当有大量客户端连接时，服务器会不堪重负，但相对来说编程简单
+同步非阻塞的NIO，面向缓存，从channel读到buffer，从buffer写到channel。事件驱动型，Reactor设计模式，socket会注册感兴趣的事件，少量线程负责
+轮询socket，当感兴趣的事件准备好的时候，再创建一个线程去处理。但是具体的IO读写还是阻塞的。
+异步非阻塞AIO，Proactor设计模式，不用用户线程亲自读写，OS会把可读的流传入read方法缓冲区，write方法的写入完毕时会通知用户线程。
+
+
+反射的原理，反射创建类实例的三种方式是什么。
+Class clazz = class.forName(""); // 知道类的全限定名
+Class clazz = 实例.getClass(); // 拥有类的实例
+Class clazz = 类.class // 编码的时候就知道类的名称了代码写死
+
+
+反射中，Class.forName和ClassLoader区别。
+JVM加载class有三个步骤：加载，链接(检查、准备、解析)，初始化
+Class.forName()得到的class对象是已经初始化完毕的。
+ClassLoader得到的class对象还没有链接，仅仅加载了而已，不会执行static中的内容,只有在newInstance才会去执行static块。
+
+
+描述动态代理的几种实现方式，分别说出相应的优缺点。
+1. 原生JDK方式。代理类和目标类实现同一接口，代理类持有目标类对象来达到拦截的目的。必须借助接口才能产生代理对象，只有在接口中声明的方法，代理类才能进行拦截。
+2. CGLIB，底层使用ASM在内存中动态生成被代理类的子类，即使代理类没有实现任何接口也可以实现动态代理功能。CGLIB简单易用，它的运行速度要远远快于JDK的Proxy动态代理
+3. asm
+4. javassist
+
+
+动态代理与cglib实现的区别。
+1.原生JDK方式。代理类和目标类实现同一接口，代理类持有目标类对象，来达到拦截的目的。必须借助接口才能产生代理对象，只有在接口中声明的方法，代理类才能进行拦截。
+2. CGLIB，底层使用ASM在内存中动态生成被代理类的子类，即使代理类没有实现任何接口也可以实现动态代理功能。CGLIB简单易用，它的运行速度要远远快于JDK的Proxy动态代理
+
+
+为什么CGlib方式可以对接口实现代理。
+CGLIB，底层使用ASM在内存中动态生成被代理类的子类，即使代理类没有实现任何接口也可以实现动态代理功能。CGLIB简单易用，它的运行速度要远远快于JDK的Proxy动态代理
+
+
+final的用途。类，变量，方法
+1.final修饰类，类不能被继承
+2.final修饰基本类型变量，变量的值不能修改
+3.final修饰引用变量，变量不能被指向其它对象
+4.final修饰方法，方法不能被重写，但是能被重载
+
+
+写出三种单例模式实现 。
+1.饿汉式
+public class Singleton {
+    private Singleton(){
+		System.out.println("构造方法");
+	}
+    private static final Singleton singleton = new Singleton();
+    public Singleton getInstance() {
+        return singleton;
+    }
+}
+2. 通过静态内部类的方式来处理
+调用外部类的静态变量和静态方法，不会初始化静态内部类
+public class Singleton {
+    private Singleton() {
+        System.out.println("够着方法");
+    }
+    private static class InnerSingleton {
+        private static final Singleton singleton = new Singleton();
+    }
+    public Singleton getInstance() {
+        return InnerSingleton.singleton;
+    }
+}
+3. 双重检查家volatile
+public class Singleton {
+    private static final volatile Singleton singleton;
+    private Singleton() {
+        System.out.println("够着方法");
+    }
+    public Singleton getInstance() {
+        if (singleton == null) {
+            sync(Singleton.class) {
+                if (singleton == null) {
+                    singleton = new Singleton;
+                }
+            }
+        }
+        return singleton;
+    }
+}
+4.枚举类
+public enum Singleton {
+    INSTANCE;
+    public void whateverMethod() {
+    }
+}
+
+
+请结合OO设计理念，谈谈访问修饰符public、private、protected、default在应用设计中的作用。
+public 本类，子类，所有包，protected 本类，子类，本包，default 本类，本包，，private 本类
+
+
+深拷贝和浅拷贝区别。
+浅拷贝：源本和副本共享相同的引用类型对象，基本类型是各自一份的，所以修改引用类型会引起源本和副本的同时变化，修改基本类型不会引起同时变化。
+深拷贝：源本和副本引用类型和基本类型都是各自一份，所以修改只会影响自己。
+Object.clone()默认是浅拷贝，若要实现深拷贝，需要将对象引用到的所有类都 implement Cloneable 接口并重写clone方法。
+可以采用序列化的方法实现简单深拷贝，需要将对象引用到的所有类都 implements Serializable 接口(不需要重写方法)。
+transient 和 static 修饰的属性不能被序列化。
+
+
+error和exception的区别，CheckedException，RuntimeException的区别。
+error 表示虚拟机发生了严重错误，必须修改程序。
+exception 表示程序可以处理的异常，可以捕获且可能恢复。遇到这类异常，应该尽可能处理异常，使程序恢复运行，而不应该随意终止异常。
+CheckedException 受查异常/编译时异常 编写代码的时候必须考虑到的异常，可以 throws 或者 try-catch。
+RuntimeException 非受查异常/运行时异常 不需要捕获，一旦抛出 RuntimeException 异常，请修改程序。
+
+
+请列出5个运行时异常。
+空指针异常 NullPointerException
+类找不到异常 ClassNotFoundException
+算数异常 ArithmeticException
+数组越界异常 ArrayIndexOutOfBoundsException
+类型转换异常 ClassCastException
+
+
+在自己的代码中，如果创建一个java.lang.String类，这个类是否可以被类加载器加载？为什么？
+不可以，因为存在双亲委派模型。先交给 bootStrap ClassLoader，若无法加载再交给 extension ClassLoader，若还不能加载则交给 System ClassLoader
+通过双亲委托模式传递到引导加载器，而引导加载器在核心 Java API 发现这个名字的类，所以会加载该核心类，并不会加载自己写 java.lang.String类。
+这样便可以防止核心API库被随意篡改。
+public class String {
+    public static void main(String[] args) {
+        String str = "my String";
+        System.out.println(str);
+    }
+}
+错误: 在类 java.lang.String 中找不到 main 方法, 请将 main 方法定义为:
+   public static void main(String[] args)
+否则 JavaFX 应用程序类必须扩展javafx.application.Application
+
+
+如果我们在 classpath 路径下自定义一个名为 java.lang.MyString 类(该类是胡编的)呢？该类并不存在 java.lang中，经过双亲委托模式，传递到启动类加载器中，
+由于父类加载器路径下并没有该类，所以不会加载，将反向委托给子类加载器加载，最终会通过 System 加载器加载该类。
+但是这样做是不允许，因为 java.lang 是核心API包，需要访问权限，强制加载将会报出如下异常：
+java.lang.SecurityException: Prohibited package name: java.lang
+
+
+说一说你对java.lang.Object对象中 hashCode和equals方法的理解。在什么场景下需要重新实现这两个方法。
+两个对象属性相同应当认为这两个对象是相同的，而不能简单的去比较两个对象的内存地址是否相同。equals比较的是对象的属性，若equals返回true。
+两个对象的hashcode必须相等；若两个兑现的hashcode相等，equals不一定为true
+需要根据对象属性去判断两个对象是否相等需要重写hashcode和equals
+
+
+在jdk1.5中，引入了泛型，泛型的存在是用来解决什么问题。
+泛型的主要目标是实现Java类型的安全。泛型可以使编译器知道一个对象限定类型是什么，从而检查代码是否有错误。
+消除了强制类型转换，使得代码可读性好，减少了很多出错的机会。
+
+
+这样的a.hashcode() 有什么用，与a.equals(b)有什么关系。
+默认调用 object 的hashcode方法，用于计算对象的内存地址。equals在不重写的情况下，使用的是object默认的 equals，调用==比较的也是对象的内存地址。
+
+
+有没有可能2个不相等的对象有相同的hashcode。
+可能，hash冲突
+
+
+Java中的HashSet内部是如何工作的。
+HashSet是基于HashMap存在的，HashMap的key是不能重复的，value是统一的public final static Object PRESENT = new Object();
+往 HashSet 中添加元素，首先判断元素（也就是key）是否存在，如果不存在则插入，如果存在则不插入，这样 HashSet 中就不存在重复值。
+
+
+什么是序列化，怎么序列化，为什么序列化，反序列化会遇到什么问题，如何解决。
+将 JVM 中的对象持久化保存到磁盘，只要一个类实现了 java.io.Serializable 接口，那么它就可以被序列化。
+FileOutputStream fs = new FileOutputStream();
+ObjectOutputSream os = new ObjectOutputSream(fs);
+os.writeObject(对象);
+os.close();
+序列化的作用就是为了不同 jvm 之间共享实例对象;内存中的对象状态保存到一个文件中或者数据库中时候；当你想用套接字在网络上传送对象的时候；当你想通过RMI传输对象的时候；
+transient 和 static 修饰的变量不参与序列化
+serialVersionUID 不要改动
+
+
+java8的新特性。
+Lambda 表达式，Stream API，接口默认方法......
+
+
+什么情况下会发生栈内存溢出。
+栈太深了，递归调用太多层了
+
+
+JVM的内存结构，Eden和Survivor比例。
+8:1:1
+
+
+Java常量池
+方法区存放了一些常量、静态变量、类信息等，可以理解成class文件在内存中的存放位置。jdk1.8后取消了方法区，改成了元空间。
+Java中的常量池存放在方法区/元空间中，实际上分为两种形态：静态常量池和运行时常量池。
+静态常量池，即*.class文件中的常量池，class文件中的常量池不仅仅包含字符串、数字的字面量，还包含类、方法的信息，占用class文件绝大部分空间。
+运行时常量池，则是jvm虚拟机在完成类装载操作后，将class文件中的常量池载入到内存中，并保存在方法区中，我们常说的常量池，就是指方法区中的运行时常量池。
+必须要关注编译期的行为，才能更好的理解常量池。编译期可知的字符串常量会根据ASCII码值转换为十六进制存放在class文件中。
+运行时常量池中的常量，基本来源于各个class文件中的常量池。
+程序运行时，除非手动向常量池中添加常量(比如调用intern方法)，否则jvm不会自动添加常量到常量池。
+除了字符串常量池，还有整型常量池，只不过它不可以手动添加常量，程序启动后常量池中的常量就已经确定，而且只有-128~127 这个范围的数字可以用到整型常量池。
+
+
+JVM内存为什么要分成新生代，老年代，永久代(方法区)。新生代中为什么要分为Eden和Survivor。
+永久代(方法区)存放字符串常量池、类的基本信息，默认大小4m，Jdk8 已经直接取消了 永久代 区域，新建了一个分配在本地内存的元空间。
+因为新生代采用复制算法，Eden和to的存活对象复制到from，然后删除Eden和to中的对象，最后from和to互换。
+
+
+JVM中一次完整的GC流程是怎样的，对象如何晋升到老年代，说说你知道的几种主要的JVM参数。
+-XX:+printGC(打印GC)；-XX:+PrintGCDetails；(打印GC细节)-XX:+PrintHeapAtGC；(在GC时打印堆状况)-XX:+TraceClassLoading；(打印class加载细节)
+-Xmx（最大堆的空间)；-Xms（最小堆的空间）; -Xmn (设置新生代的大小)；-XX:NewRatio(新生代和老年代比例，默认1:2)；-XX:SurvivorRatio；
+-Xss (设置栈空间的大小); -XX:+HeapDumpOnOutOfMemoryError；
+
+
+你知道哪几种垃圾收集器，各自的优缺点，重点讲下cms和G1，包括原理，流程，优缺点。
+新生代垃圾收集器： Serial，采用复制算法，单线程，在进行垃圾回收时会暂停其他所有工作线程(stop the world)
+                 ParNew，Serial 的多线程版，采用复制算法，在进行垃圾回收时会暂停其他所有工作线程(stop the world)
+                 Parallel Scavenge，多线程，采用复制算法，吞吐量优先,运行代码时间/(运行代码时间+垃圾收集时间)，最高效率地利用CPU时间，
+                 尽快地完成程序的运算任务,在进行垃圾回收时会暂停其他所有工作线程(stop the world)
+				 G1......
+老年代垃圾收集器： Serial Old，采用标记-整理算法，单线程，在进行垃圾回收时会暂停其他所有工作线程(stop the world)
+				Parallel Old,采用标记-整理算法，多线程，吞吐量优先,在进行垃圾回收时会暂停其他所有工作线程(stop the world)
+				CMS 采用标记-清除算法，多线程，主要目标是获取最短垃圾回收停顿时间，真正意义上并发垃圾收集器，它第一次实现了让垃圾收集线程和用户线程同时工作。
+				G1 基于标记-整理算法，高垃圾收集效率。可以非常精确控制停顿时间，在不牺牲吞吐量前提下，实现低停顿垃圾回收。
+				G1收集器避免全区域垃圾收集，它把堆内存划分为大小固定的几个独立区域，并且跟踪这些区域的垃圾收集进度，
+				同时在后台维护一个优先级列表，每次根据所允许的收集时间，优先回收垃圾最多的区域。
+
+
+垃圾回收算法的实现原理。
+标记清除算法；标记整理算法；复制算法；分代收集算法
+GC Root：栈中的对象
+
+
+当出现了内存溢出，你怎么排错。
+-XX:+HeapDumpOnOutOfMemoryError，Mat分析堆转储文件
+
+
+JVM内存模型的相关知识了解多少，比如重排序，内存屏障，happen-before，主内存，工作内存等。
+重排序指编译器和处理器为了优化程序性能而对指令序列进行重新排序的手段。
+对于有数据依赖的代码，不会重排序，比如写后读、写后写和读后写；
+happen-before是指 A 操作 happen-before B 操作，只要保证结果正确，具体指令按什么顺序执行时可以重排序的。
+as-if-serial语义保证单线程内程序的执行结果不被改变，happens-before关系保证正确同步的多线程程序的执行结果不被改变。
+程序顺序规则：一个线程中的每个操作，happens-before于该线程中的任意后续操作。
+监视器锁规则：对一个锁的解锁，happens-before于随后对这个锁的加锁。
+volatile变量规则：对一个volatile域的写，happens-before于任意后续对这个volatile域的读。
+传递性：如果A happens-before B，且B happens-before C，那么A happens-before C。
+start()规则：如果线程A执行操作ThreadB.start()（启动线程B），那么A线程的ThreadB.start()操作happens-before于线程B中的任意操作。
+join()规则：如果线程A执行操作ThreadB.join()并成功返回，那么线程B中的任意操作happens-before于线程A从ThreadB.join()操作成功返回。
+
+内存屏障
+Store：将cache的数据刷新到内存中。Load：将内存存储的数据拷贝到cache中。
+四种屏障：loadload、storestore、loadstore、storeload
+
+
+简单说说你了解的类加载器，可以打破双亲委派么，怎么打破。
+bootStrap ClassLoader、extension ClassLoader 和 System ClassLoader
+首先自己写一个加载器继承 ClassLoader，重写loadClass和findClass方法
+两个类是否相同，需要他们的加载器相同！ 所以即使自己自定义加载器加载自己写的java.lang.String，系统也不认为该类就是真正的String
+
+讲讲JAVA的反射机制。
+反射就是对.class文件(字节码)进行一系列操作，包括获取所有变量、属性、方法、构造器...
+
+
+g1和cms区别,吞吐量优先和响应优先的垃圾收集器选择。
+CMS 是多线程老年代垃圾回收器，基于标记-清除算法，是真正意义上的并发垃圾收集器，追求最短的垃圾回收停顿时间。大概分为四步，首先初始标记(stop the world)，
+标记出root可达的对象，然后并发标记，跟踪可达对象，再标记可达对象，接着重新标记(stop the world)，标记可达对象，最后并发清理。缺点是占用cpu，清理不彻底。
+G1 基于对于新生代采用复制算法，对于老年代采用标记-整理算法，高垃圾收集效率。可以非常精确控制停顿时间，在不牺牲吞吐量前提下，实现低停顿垃圾回收。
+G1 垃圾收集器避免全区域垃圾收集，它把堆内存划分为大小固定的几个独立区域，并且跟踪这些区域的垃圾收集进度，同时在后台维护一个优先级列表，
+每次根据所允许的收集时间，优先回收垃圾最多的区域。
+
+
+怎么打出线程栈信息。
+jstack
+
+
+请解释如下jvm参数的含义：
+-server -Xms512m -Xmx512m -Xss1024K
+server: 指java启用JIT的Server Compiler，全局优化，优化比较慢，client Compiler 仅采用局部优化，优化比较快。
+java堆最小512M，最大512M，栈空间大小1024K
+-XX:PermSize=256m -XX:MaxPermSize=512m
+永久代大小初始256m，最大512m
+-XX:MaxTenuringThreshold=20
+新生代晋升老年代的年龄阈值，默认15；
+-XX:MSInitiatingOccupancyFraction=80 -XX:+UseCMSInitiatingOccupancyOnly。
+当内存被占用达到80%时，启动full GC；指定cms使用手动设定的阈值full GC，否则只有第一次会在80%时GC，之后则自动调整
+
+
+LongAdder和AtomicLong的区别
+AtomicLong的原理是依靠底层的cas来保障原子性的更新数据，在要添加或者减少的时候，会使用死循环不断地cas到特定的值，从而达到更新数据的目的。
+如果并发量大的时候会导致cas经常失败，相当于一直在自旋，白白浪费cpu资源。
+LongAdder中会维护一个或多个变量，这些变量共同组成一个long型的"和"，当多个线程同时更新值时，如果他们之间不操作同一个值(cell)，则可以并行增减这组变量
+的数值，若多个线程操作同一个cell，则通过cas方法尝试。"sum"方法会返回这组值的"和"。思路类似于concurrentHashMap，减小锁粒度。小并发情况下，效率和
+AtomicLong差不多，高并发下LongAdder吞吐量明显更高，但有着更高的空间复杂度。
+
+
+JMM Java内存模型
+JMM定义了JVM在计算机内存RAM中的工作方式，JMM隶属于JVM。
+JMM定义了线程和主内存之间的抽象关系：线程之间的共享变量存储在主内存中，每个线程都有一个私有的本地内存，本地内存中存储了该线程共享变量的副本。
+基本变量 int a=-128~127，a变量存储在线程栈的局部变量表中，指向常量池中的-128~127；若不属于该范围，变量a和a的值都存储在线程栈中。
+引用变量 Person a = new Person()，a变量存储在线程栈的局部变量表中，实际对象存储在堆中。
+
+
+JMM 带来的问题
+1.可见性问题
+A线程在工作内存中修改了共享变量count，使之从1变成2，由于还没有flush到主内存，所以此时B线程读取到的count还是1。 需要引入Volatile
+2.竞争现象
+A、B线程同时在各自的工作内存中操作共享变量count，执行count++，结果可能为2或者3。需要引入Synchronized
+3.重排序：在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排序。
+重排序类型
+1、编译器优化的重排序。编译器在不改变单线程程序语义的前提下，可以重新安排语句的执行顺序。
+2、指令级并行的重排序。现代处理器采用了指令级并行技术来将多条指令重叠执行。如果不存在数据依赖性，处理器可以改变语句对应机器指令的执行顺序。
+3、内存系统的重排序。由于处理器使用缓存和读/写缓冲区，这使得加载和存储操作看上去可能是在乱序执行。
+
+
+重排序与依赖性
+1、写后读、写后写、读后写，这些语句顺序不能被改动，一旦顺序被重排序，执行结果就会被改变。
+2、控制依赖性，flag变量是个标记，用来标识变量a是否已被写入，在use方法中是否对变量i进行操作依赖于if (flag)的判断。
+在单线程程序中，对存在控制依赖的操作重排序，不会改变执行结果。处理器为了不闲置，会"猜测"flag为true，先行对i进行操作，万一后来发现flag其实是
+false，大不了抛弃之前进行的操作，重新进行正确的操作。
+但在多线程程序中，对存在控制依赖的操作重排序，可能会改变程序的执行结果。
+3、as-if-serial：不管怎么重排序，单线程程序的执行结果不能被改变。为了遵守as-if-serial语义，编译器和处理器不会对存在数据依赖关系的操作做重排序。
+(这里所说的数据依赖性仅针对单个处理器中执行的指令序列和单个线程中执行的操作，不同处理器之间和不同线程之间的数据依赖性不被编译器和处理器考虑。)
+
+
+解决在并发下的问题
+1、内存屏障——禁止重排序
+JMM的四种内存屏障
+LoadLoad Barrier           Load1，LoadLoad，Load2             确保Load1(从主内存装载到工作内存)数据装载，先于Load2及其后的所有指令
+LoadStore Barrier          Load1，LoadStore，Store2			 确保Load1数据装载，先于Store2(将数据从工作内存刷新到主内存)及其后的所有指令
+StoreLoad Barrier          Store1，StoreLoad，Load2
+StoreStore Barrier         Store1，StoreStore，Store2
+2、临界区
+临界区内的代码可以重排序（但JMM不允许临界区内的代码"逸出"到临界区之外，那样会破坏监视器的语义）。JMM会在退出临界区和进入临界区这两个关键时间点
+做一些特别处理，虽然线程A在临界区内做了重排序，但由于监视器互斥执行的特性，这里的线程B根本无法"观察"到线程A在临界区内的重排序。
+这种重排序既提高了执行效率，又没有改变程序的执行结果。
+
+Happens-Before规则要求前一个操作（执行的结果）对后一个操作可见...... 程序顺序规则、监视器锁规则、volatile变量规则、传递性、start()规则、join()规则、线程中断规则
+
+volatile的内存语义
+当写一个volatile变量时，JMM会把该线程对应的本地内存中的volatile变量值刷新到主内存。
+当读一个volatile变量时，JMM会把该线程对应的本地内存的volatile变量置为无效，接着将从主内存中读取volatile变量。
+volatile内存语义的实现——JMM对volatile的内存屏障插入策略：
+在每个volatile写操作的前面插入一个StoreStore屏障。在每个volatile写操作的后面插入一个StoreLoad屏障。
+在每个volatile读操作的前面插入一个LoadLoad屏障。在每个volatile读操作的后面插入一个LoadStore屏障。
+
+锁的内存语义
+当线程释放锁时，JMM会把该线程对应的本地内存中的共享变量刷新到主内存中。
+当线程获取锁时，JMM会把该线程对应的本地内存置为无效。从而使得被监视器保护的临界区代码必须从主内存中读取共享变量。
+
+synchronized的实现原理
+使用monitorenter和monitorexit指令实现。
+monitorenter指令是在编译后插入到同步代码块的开始位置，而monitorexit是插入到方法结束处和异常处。
+每个monitorenter必须有对应的monitorexit与之配对。
+synchronized上锁对象的对象头里的重量级锁标志指向monitor，monitor中保存了当前抢到锁的线程。
+
+
+各种锁
+锁一共有4种状态，级别从低到高依次是：无锁状态、偏向锁状态、轻量级锁状态和重量级锁状态。
+
+偏向锁：大多数情况下，锁不存在多线程竞争，总是由同一线程获得。为了让线程获得锁的代价降低，引入了偏向锁。只需要在锁的Mark Word中通过CAS记录
+当前拥有锁的线程，如果记录成功，则获取偏向锁，之后当前线程只需要检查锁对象的Mark Word的偏向锁位是否指向自己。
+
+轻量级锁：少量竞争时通过CAS操作来加锁和解锁。（自旋锁——是一种锁的机制，不是状态）
+线程A和线程B分别在自己的栈空间中新建一块存储锁记录的空间，然后将锁对象的Mark Word信息复制到开辟的空间中，然后线程A和线程B进行CAS操作，将锁
+对象的Mark Word的轻量级锁位指向各自开辟的空间。
+假如线程B竞争成功，则线程A进入自旋状态，尝试修改锁对象的Mark Word的轻量级锁位，使其指向自己开辟的空间，如果30~50次尝试失败则进入重量级锁。
+
+重量级锁：真正的加锁操作。此处将会用到monitor对象！锁对象的Mark Word的重量级锁标志指向monitor，monitor中保存了当前抢到锁的线程
+
+
+
+
+
+
+
+
+
+
+
+
+
+
